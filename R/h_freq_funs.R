@@ -12,6 +12,33 @@ get_ctrl_subset <- function(df, trt_var, ctrl_grp) {
 }
 
 
+#' Format Function for Multiple Control Group Risk Differences
+#'
+#' Creates a format function for concatenated risk difference vectors when
+#' multiple control groups are used. Each control group contributes a 3-element
+#' vector (estimate, lower CI, upper CI), and this formatter displays them
+#' pipe-separated.
+#'
+#' @param x (`numeric`)\cr Concatenated vector of risk difference values.
+#'   Length must be a multiple of 3.
+#' @param ... Additional arguments (unused).
+#' @return Formatted string with pipe-separated risk difference results.
+#' @keywords internal
+h_multi_ctrl_rr_format <- function(x, ...) {
+  n_ctrl <- length(x) / 3
+  parts <- vapply(seq_len(n_ctrl), function(i) {
+    idx <- ((i - 1) * 3 + 1):(i * 3)
+    vals <- x[idx]
+    if (all(is.na(vals))) {
+      "NA (NA, NA)"
+    } else {
+      sprintf("%.1f (%.1f, %.1f)", vals[1], vals[2], vals[3])
+    }
+  }, character(1))
+  paste(parts, collapse = " | ")
+}
+
+
 #' Create Alternative Data Frame
 #'
 #' Creates an alternative data frame based on the current split context.

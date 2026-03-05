@@ -894,23 +894,9 @@ a_freq_j <- function(
     x_stats[[".ctrl_grp_names"]] <- NULL
 
     if (!is.null(ctrl_grp_count) && ctrl_grp_count > 1) {
-      # Build a format function for the concatenated vector (3 values per control group)
-      multi_rr_format <- function(x, ...) {
-        n_ctrl <- length(x) / 3
-        parts <- vapply(seq_len(n_ctrl), function(i) {
-          idx <- ((i - 1) * 3 + 1):(i * 3)
-          vals <- x[idx]
-          if (all(is.na(vals))) {
-            "NA (NA, NA)"
-          } else {
-            sprintf("%.1f (%.1f, %.1f)", vals[1], vals[2], vals[3])
-          }
-        }, character(1))
-        paste(parts, collapse = " | ")
-      }
-      # Store in .formats for later use by h_a_freq_prepinrows
+      # Store shared format function for multi-control-group display
       if (is.null(.formats)) .formats <- list()
-      .formats[["rr_ci_3d"]] <- multi_rr_format
+      .formats[["rr_ci_3d"]] <- h_multi_ctrl_rr_format
     }
   }
 

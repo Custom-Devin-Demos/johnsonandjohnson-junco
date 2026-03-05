@@ -198,23 +198,9 @@ a_freq_resp_var_j <- function(
       ctrl_grp_count <- rslt[[".ctrl_grp_count"]]
       if (!is.null(ctrl_grp_count) && ctrl_grp_count > 1) {
         x_stat <- rslt[["rr_ci_3d"]]$Y
-        # Build a format function for the concatenated vector (3 values per control group)
-        multi_rr_format <- function(x, ...) {
-          n_ctrl <- length(x) / 3
-          parts <- vapply(seq_len(n_ctrl), function(i) {
-            idx <- ((i - 1) * 3 + 1):(i * 3)
-            vals <- x[idx]
-            if (all(is.na(vals))) {
-              "NA (NA, NA)"
-            } else {
-              sprintf("%.1f (%.1f, %.1f)", vals[1], vals[2], vals[3])
-            }
-          }, character(1))
-          paste(parts, collapse = " | ")
-        }
         rslt <- rcell(
           x_stat,
-          format = multi_rr_format,
+          format = h_multi_ctrl_rr_format,
           format_na_str = rep("NA", 3)
         )
       } else {
