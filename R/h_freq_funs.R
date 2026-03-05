@@ -285,13 +285,79 @@ h_df_add_newlevels <- function(df, .var, new_levels, addstr2levs = NULL, new_lev
 #' Get Treatment Variable Reference Path
 #'
 #' Retrieves the treatment variable reference path from the provided context.
+#' Supports both single and multiple control groups.
 #'
-#' @param ref_path (`character`)\cr Reference path for treatment variable.
+#' @param ref_path (`character` or `list`)\cr Reference path for treatment variable.
+#'   Can be a character vector (single control group, backward compatible) or a list
+#'   of character vectors (multiple control groups). Each character vector must have
+#'   an even number of elements representing paired column split variable/value specifications.
 #' @param .spl_context (`data.frame`)\cr Current split context.
 #' @param df (`data.frame`)\cr Data frame.
-#' @return List containing treatment variable details.
+#' @return List containing treatment variable details:
+#'   \itemize{
+#'     \item `trt_var`: treatment variable name
+#'     \item `trt_var_refspec`: treatment variable from ref_path specification
+#'     \item `cur_trt_grp`: current treatment group value
+#'     \item `ctrl_grp`: control group value(s). A single string when one control group
+#'       is specified, or a character vector when multiple control groups are specified.
+#'   }
 #' @export
 h_get_trtvar_refpath <- function(ref_path, .spl_context, df) {
+  # Handle list input (multiple control groups)
+  if (is.list(ref_path) && !is.null(ref_path)) {
+    if (length(ref_path) == 0) {
+      stop("ref_path list must contain at least one element.")
+    }
+    # Validate each element is a character vector with even length
+    for (i in seq_along(ref_path)) {
+      checkmate::assert_character(ref_path[[i]], min.len = 2L, .var.name = paste0("ref_path[[", i, "]]"))
+      if (length(ref_path[[i]]) %% 2 != 0) {
+        stop(paste0("ref_path[[", i, "]] must have an even number of elements."))
+      }
+    }
+
+    trt_var <- utils::tail(.spl_context$cur_col_split[[length(.spl_context$cur_col_split)]], n = 1)
+    cur_trt_grp <- utils::tail(.spl_context$cur_col_split_val[[length(.spl_context$cur_col_split_val)]], n = 1)
+
+    # Validate all ref_paths reference the same treatment variable
+    ctrl_grps <- character(length(ref_path))
+    for (i in seq_along(ref_path)) {
+      trt_var_refspec_i <- utils::tail(ref_path[[i]], n = 2)[1]
+      checkmate::assert_true(
+        identical(trt_var, trt_var_refspec_i),
+        .var.name = paste0("trt_var match for ref_path[[", i, "]]")
+      )
+      ctrl_grps[i] <- utils::tail(ref_path[[i]], n = 1)
+    }
+
+    # Check for duplicates
+    if (anyDuplicated(ctrl_grps) > 0) {
+      stop("Duplicate control groups found in ref_path list.")
+    }
+
+    # Validate all control groups are levels of the treatment variable
+    trt_levels <- levels(df[[trt_var]])
+    invalid_grps <- setdiff(ctrl_grps, trt_levels)
+    if (length(invalid_grps) > 0) {
+      stop(paste0(
+        "control group specification(s) in ref_path argument (",
+        paste(invalid_grps, collapse = ", "),
+        ") not found as level(s) of your treatment group variable (",
+        trt_var,
+        ")."
+      ))
+    }
+
+    trt_var_refspec <- utils::tail(ref_path[[1]], n = 2)[1]
+    return(list(
+      trt_var = trt_var,
+      trt_var_refspec = trt_var_refspec,
+      cur_trt_grp = cur_trt_grp,
+      ctrl_grp = ctrl_grps
+    ))
+  }
+
+  # Original single ref_path logic (backward compatible)
   checkmate::check_character(ref_path, min.len = 2L, names = "unnamed")
   checkmate::assert_true(length(ref_path) %% 2 == 0) # Even number of elements in ref_path.
 

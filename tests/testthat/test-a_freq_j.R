@@ -124,3 +124,49 @@ test_that("a_freq_j in specific situation error for not passing alt_counts_df", 
   result <- build_table(lyt, adsl, alt_counts_df = adsl)
   expect_snapshot(result)
 })
+
+test_that("a_freq_j with multiple control groups (list ref_path) produces valid output", {
+  library(dplyr)
+  trtvar <- "ARM"
+  ctrl_grp1 <- "B: Placebo"
+  ctrl_grp2 <- "A: Drug X"
+
+  adsl <- ex_adsl |> select(c("USUBJID", "STRATA1", "EOSSTT", all_of(trtvar)))
+  adsl$colspan_trt <- factor(
+    ifelse(adsl[[trtvar]] == ctrl_grp1, " ", "Active Study Agent"),
+    levels = c("Active Study Agent", " ")
+  )
+  adsl$rrisk_header <- "Risk Difference (%) (95% CI)"
+  adsl$rrisk_label <- paste(adsl[[trtvar]], paste("vs", ctrl_grp1))
+
+  colspan_trt_map <- create_colspan_map(
+    df = adsl,
+    non_active_grp = ctrl_grp1,
+    non_active_grp_span_lbl = " ",
+    active_grp_span_lbl = "Active Study Agent",
+    colspan_var = "colspan_trt",
+    trt_var = trtvar
+  )
+
+  # Test with multiple control groups via list ref_path
+  ref_path_multi <- list(
+    c("colspan_trt", " ", trtvar, ctrl_grp1),
+    c("colspan_trt", " ", trtvar, ctrl_grp2)
+  )
+
+  a_freq_j_args_multi <- list(
+    .stats = "count_unique_fraction",
+    ref_path = ref_path_multi
+  )
+
+  lyt_multi <- basic_table(show_colcounts = TRUE) |>
+    split_cols_by("colspan_trt", split_fun = trim_levels_to_map(map = colspan_trt_map)) |>
+    split_cols_by(trtvar) |>
+    split_cols_by("rrisk_header", nested = FALSE) |>
+    split_cols_by(trtvar, labels_var = "rrisk_label", split_fun = remove_split_levels(ctrl_grp1)) |>
+    split_rows_by("STRATA1") |>
+    analyze("EOSSTT", afun = a_freq_j, extra_args = a_freq_j_args_multi)
+
+  result_multi <- build_table(lyt_multi, adsl, alt_counts_df = adsl)
+  expect_snapshot(result_multi)
+})

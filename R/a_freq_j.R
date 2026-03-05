@@ -323,6 +323,56 @@ s_rel_risk_val_j <- function(
     )
   }
 
+  # Handle multiple control groups: compute risk diff for each, concatenate results per level
+  if (length(ctrl_grp) > 1) {
+    ### denominator data from current group - denom_df based ---
+    curgrp_denom_df <- get_ctrl_subset(
+      denom_df,
+      trt_var = trt_var,
+      ctrl_grp = cur_trt_grp
+    )
+    # ensure this is unique record per subject
+    curgrp_denom_df <- unique(curgrp_denom_df[, c(id, variables$strata), drop = FALSE])
+
+    # Collect results per control group
+    rr_per_ctrl <- list()
+    for (cg in ctrl_grp) {
+      .in_ref_col_cg <- (cur_trt_grp == cg)
+      ref_df_cg <- get_ctrl_subset(.df_row, trt_var = trt_var, ctrl_grp = cg)
+      ref_denom_df_cg <- get_ctrl_subset(denom_df, trt_var = trt_var, ctrl_grp = cg)
+      ref_denom_df_cg <- unique(ref_denom_df_cg[, c(id, variables$strata), drop = FALSE])
+
+      rr_per_ctrl[[cg]] <- sapply(
+        levs,
+        s_rel_risk_levii_j,
+        df = df,
+        .var = .var,
+        ref_df = ref_df_cg,
+        ref_denom_df = ref_denom_df_cg,
+        .in_ref_col = .in_ref_col_cg,
+        curgrp_denom_df = curgrp_denom_df,
+        id = id,
+        variables = variables,
+        conf_level = conf_level,
+        method = method,
+        weights_method = weights_method,
+        USE.NAMES = TRUE,
+        simplify = FALSE
+      )
+    }
+
+    # Combine: for each level, concatenate the 3-element vectors from each control group
+    rr_ci_3d <- setNames(lapply(levs, function(lev) {
+      combined <- unlist(lapply(ctrl_grp, function(cg) {
+        rr_per_ctrl[[cg]][[lev]]
+      }))
+      combined
+    }), levs)
+
+    return(list(rr_ci_3d = rr_ci_3d, .ctrl_grp_count = length(ctrl_grp), .ctrl_grp_names = ctrl_grp))
+  }
+
+  # Single control group (backward compatible)
   ### are we in reference column?
   .in_ref_col <- (cur_trt_grp == ctrl_grp)
 
@@ -382,8 +432,11 @@ s_rel_risk_val_j <- function(
 #' presented (if required risk difference column splits are included).\cr
 #' When `FALSE`, risk difference columns will remain blank
 #' (if required risk difference column splits are included).
-#' @param ref_path (`string`)\cr Column path specifications for
-#' the control group for the relative risk derivation.
+#' @param ref_path (`character` or `list`)\cr Column path specifications for
+#' the control group(s) for the relative risk derivation.
+#' Can be a character vector (single control group, backward compatible) or a list
+#' of character vectors (multiple control groups). When multiple control groups are
+#' specified, risk differences are calculated against each control group.
 #' @param variables Will be passed onto the relative risk function
 #' (internal function s_rel_risk_val_j), which is based upon [tern::s_proportion_diff()].\cr
 #' See `?tern::s_proportion_diff` for details.
@@ -832,6 +885,33 @@ a_freq_j <- function(
         ),
       "rr_ci_3d"
     )
+
+    # For multiple control groups, build a dynamic format function
+    ctrl_grp_count <- x_stats[[".ctrl_grp_count"]]
+    ctrl_grp_names <- x_stats[[".ctrl_grp_names"]]
+    # Remove metadata from x_stats
+    x_stats[[".ctrl_grp_count"]] <- NULL
+    x_stats[[".ctrl_grp_names"]] <- NULL
+
+    if (!is.null(ctrl_grp_count) && ctrl_grp_count > 1) {
+      # Build a format function for the concatenated vector (3 values per control group)
+      multi_rr_format <- function(x, ...) {
+        n_ctrl <- length(x) / 3
+        parts <- vapply(seq_len(n_ctrl), function(i) {
+          idx <- ((i - 1) * 3 + 1):(i * 3)
+          vals <- x[idx]
+          if (all(is.na(vals))) {
+            "NA (NA, NA)"
+          } else {
+            sprintf("%.1f (%.1f, %.1f)", vals[1], vals[2], vals[3])
+          }
+        }, character(1))
+        paste(parts, collapse = " | ")
+      }
+      # Store in .formats for later use by h_a_freq_prepinrows
+      if (is.null(.formats)) .formats <- list()
+      .formats[["rr_ci_3d"]] <- multi_rr_format
+    }
   }
 
   res_prepinrows <- h_a_freq_prepinrows(
