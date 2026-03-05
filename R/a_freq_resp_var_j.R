@@ -201,7 +201,7 @@ a_freq_resp_var_j <- function(
         rslt <- rcell(
           x_stat,
           format = h_multi_ctrl_rr_format,
-          format_na_str = rep("NA", 3)
+          format_na_str = rep("NA", 3 * ctrl_grp_count)
         )
       } else {
         x_stat <- rslt[["rr_ci_3d"]]$Y

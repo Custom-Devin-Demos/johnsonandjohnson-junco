@@ -897,6 +897,8 @@ a_freq_j <- function(
       # Store shared format function for multi-control-group display
       if (is.null(.formats)) .formats <- list()
       .formats[["rr_ci_3d"]] <- h_multi_ctrl_rr_format
+      # Adjust na_str length to match concatenated vector (3 per control group)
+      na_str <- rep("NA", 3 * ctrl_grp_count)
     }
   }
 
