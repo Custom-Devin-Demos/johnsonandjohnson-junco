@@ -74,6 +74,10 @@ s_summarize_ex_j <- function(
       cur_trt_grp <- trt_var_refpath$cur_trt_grp
       ctrl_grp <- trt_var_refpath$ctrl_grp
 
+      if (length(ctrl_grp) > 1) {
+        stop("a_summarize_ex_j does not support multiple control groups. Use a single ref_path character vector.")
+      }
+
       .in_ref_col <- FALSE
       if (trt_var == ctrl_grp) .in_ref_col <- TRUE
 

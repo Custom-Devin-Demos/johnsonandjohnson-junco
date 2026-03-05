@@ -200,6 +200,131 @@ test_that("h_subset_combo works correctly", {
 
 # TODO: fix this test_that("h_create_altdf works correctly")
 
+test_that("h_get_trtvar_refpath handles single ref_path (backward compatible)", {
+  # Create mock .spl_context
+  spl_context <- data.frame(dummy = 1)
+  spl_context$cur_col_split <- list(c("ARM"))
+  spl_context$cur_col_split_val <- list(c("A: Drug X"))
+
+  df <- data.frame(
+    ARM = factor(c("A: Drug X", "B: Placebo", "C: Combination"),
+      levels = c("A: Drug X", "B: Placebo", "C: Combination")
+    )
+  )
+
+  ref_path <- c("ARM", "B: Placebo")
+  result <- h_get_trtvar_refpath(ref_path, spl_context, df)
+
+  expect_equal(result$trt_var, "ARM")
+  expect_equal(result$ctrl_grp, "B: Placebo")
+  expect_equal(result$cur_trt_grp, "A: Drug X")
+  expect_type(result$ctrl_grp, "character")
+  expect_length(result$ctrl_grp, 1)
+})
+
+test_that("h_get_trtvar_refpath handles multiple ref_paths (list input)", {
+  spl_context <- data.frame(dummy = 1)
+  spl_context$cur_col_split <- list(c("ARM"))
+  spl_context$cur_col_split_val <- list(c("A: Drug X"))
+
+  df <- data.frame(
+    ARM = factor(c("A: Drug X", "B: Placebo", "C: Combination"),
+      levels = c("A: Drug X", "B: Placebo", "C: Combination")
+    )
+  )
+
+  ref_path_list <- list(
+    c("ARM", "B: Placebo"),
+    c("ARM", "C: Combination")
+  )
+  result <- h_get_trtvar_refpath(ref_path_list, spl_context, df)
+
+  expect_equal(result$trt_var, "ARM")
+  expect_equal(result$cur_trt_grp, "A: Drug X")
+  expect_equal(result$ctrl_grp, c("B: Placebo", "C: Combination"))
+  expect_length(result$ctrl_grp, 2)
+})
+
+test_that("h_get_trtvar_refpath errors on empty list", {
+  spl_context <- data.frame(dummy = 1)
+  spl_context$cur_col_split <- list(c("ARM"))
+  spl_context$cur_col_split_val <- list(c("A: Drug X"))
+
+  df <- data.frame(
+    ARM = factor(c("A: Drug X", "B: Placebo"),
+      levels = c("A: Drug X", "B: Placebo")
+    )
+  )
+
+  expect_error(
+    h_get_trtvar_refpath(list(), spl_context, df),
+    "ref_path list must contain at least one element"
+  )
+})
+
+test_that("h_get_trtvar_refpath errors on duplicate control groups", {
+  spl_context <- data.frame(dummy = 1)
+  spl_context$cur_col_split <- list(c("ARM"))
+  spl_context$cur_col_split_val <- list(c("A: Drug X"))
+
+  df <- data.frame(
+    ARM = factor(c("A: Drug X", "B: Placebo"),
+      levels = c("A: Drug X", "B: Placebo")
+    )
+  )
+
+  ref_path_list <- list(
+    c("ARM", "B: Placebo"),
+    c("ARM", "B: Placebo")
+  )
+  expect_error(
+    h_get_trtvar_refpath(ref_path_list, spl_context, df),
+    "Duplicate control groups"
+  )
+})
+
+test_that("h_get_trtvar_refpath errors on invalid control group in list", {
+  spl_context <- data.frame(dummy = 1)
+  spl_context$cur_col_split <- list(c("ARM"))
+  spl_context$cur_col_split_val <- list(c("A: Drug X"))
+
+  df <- data.frame(
+    ARM = factor(c("A: Drug X", "B: Placebo", "C: Combination"),
+      levels = c("A: Drug X", "B: Placebo", "C: Combination")
+    )
+  )
+
+  ref_path_list <- list(
+    c("ARM", "B: Placebo"),
+    c("ARM", "Z: NonExistent")
+  )
+  expect_error(
+    h_get_trtvar_refpath(ref_path_list, spl_context, df),
+    "not found as level"
+  )
+})
+
+test_that("h_get_trtvar_refpath errors on odd-length element in list", {
+  spl_context <- data.frame(dummy = 1)
+  spl_context$cur_col_split <- list(c("ARM"))
+  spl_context$cur_col_split_val <- list(c("A: Drug X"))
+
+  df <- data.frame(
+    ARM = factor(c("A: Drug X", "B: Placebo"),
+      levels = c("A: Drug X", "B: Placebo")
+    )
+  )
+
+  ref_path_list <- list(
+    c("ARM", "B: Placebo"),
+    c("ARM", "B: Placebo", "extra")
+  )
+  expect_error(
+    h_get_trtvar_refpath(ref_path_list, spl_context, df),
+    "must have an even number of elements"
+  )
+})
+
 test_that("h_restrict_val works if there are more values in df_row than in map", {
   df_row <- data.frame(
     Group = c("A", "A", "B", "B"),

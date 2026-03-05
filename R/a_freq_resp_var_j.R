@@ -12,7 +12,9 @@
 #' @param id (`string`)\cr subject variable name.
 #' @param drop_levels (`logical`)\cr if TRUE, non-observed levels will not be included.
 #' @param riskdiff (`logical`)\cr if TRUE, risk difference calculations will be performed.
-#' @param ref_path (`string`)\cr column path specifications for the control group.
+#' @param ref_path (`character` or `list`)\cr column path specifications for the control group.
+#'   Can be a character vector (single control group) or a list of character vectors
+#'   (multiple control groups).
 #' @param variables (`list`)\cr variables to include in the analysis.
 #' @param conf_level (`proportion`)\cr confidence level of the interval.
 #' @param method (`character`)\cr method for calculating confidence intervals.
@@ -168,7 +170,7 @@ a_freq_resp_var_j <- function(
       x_stat <- rslt[[.stat]]$Y
       rslt <- rcell(x_stat, format = jjcsformat_count_denom_fraction)
     } else {
-      # use the risk differenc function s_rel_risk_val_j on the current level of the incoming variable (.var)
+      # use the risk difference function s_rel_risk_val_j on the current level of the incoming variable (.var)
       # note that the response variable will become .var in the below call
       # val is restricted to Y to show number of response on the current level of .var
       denom_df <- dfrowii
@@ -191,12 +193,24 @@ a_freq_resp_var_j <- function(
         method = method,
         weights_method = weights_method
       )
-      x_stat <- rslt[["rr_ci_3d"]]$Y
-      rslt <- rcell(
-        x_stat,
-        format = jjcsformat_xx("xx.x (xx.x, xx.x)"),
-        format_na_str = rep("NA", 3)
-      )
+
+      # Handle multiple control groups: concatenated vector results
+      ctrl_grp_count <- rslt[[".ctrl_grp_count"]]
+      if (!is.null(ctrl_grp_count) && ctrl_grp_count > 1) {
+        x_stat <- rslt[["rr_ci_3d"]]$Y
+        rslt <- rcell(
+          x_stat,
+          format = h_multi_ctrl_rr_format,
+          format_na_str = rep("NA", 3 * ctrl_grp_count)
+        )
+      } else {
+        x_stat <- rslt[["rr_ci_3d"]]$Y
+        rslt <- rcell(
+          x_stat,
+          format = jjcsformat_xx("xx.x (xx.x, xx.x)"),
+          format_na_str = rep("NA", 3)
+        )
+      }
     }
 
     # rslt is a single rcell row

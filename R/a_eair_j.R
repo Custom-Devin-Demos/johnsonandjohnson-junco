@@ -568,6 +568,10 @@ a_eair100_j <- function(
     cur_trt_grp <- trt_var_refpath$cur_trt_grp
     ctrl_grp <- trt_var_refpath$ctrl_grp
 
+    if (length(ctrl_grp) > 1) {
+      stop("a_eair_j does not support multiple control groups. Use a single ref_path character vector.")
+    }
+
     fn_args_x <- list(
       .alt_df_full = .alt_df_full,
       # treatment/ref group related arguments
